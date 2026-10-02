@@ -2,6 +2,8 @@ services:
   server:
     build: ./server
     env_file: .env
+    volumes:
+      - portal-data:/data
     restart: unless-stopped
   web:
     build: ./web
@@ -9,3 +11,6 @@ services:
     ports:
       - "${WEB_PORT:-8088}:80"
     restart: unless-stopped
+
+volumes:
+  portal-data:
