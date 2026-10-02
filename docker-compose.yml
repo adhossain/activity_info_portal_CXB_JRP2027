@@ -1,0 +1,11 @@
+services:
+  server:
+    build: ./server
+    env_file: .env
+    restart: unless-stopped
+  web:
+    build: ./web
+    depends_on: [server]
+    ports:
+      - "${WEB_PORT:-8088}:80"
+    restart: unless-stopped
