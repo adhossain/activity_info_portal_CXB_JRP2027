@@ -99,6 +99,8 @@ export interface RecordNode {
   isNew?: boolean;
   deleted?: boolean;
   dirty?: boolean;
+  /** A message shown on the row, e.g. after the portal changed it on load. */
+  notice?: string;
 }
 
 export function defaultFields(schema: FormSchema): Record<string, unknown> {

@@ -770,3 +770,13 @@ tbody tr:hover {
     color: var(--text);
   }
 }
+
+.row-notice {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: #fff8e6;
+  border: 1px solid #f0d58c;
+  color: #6b4b00;
+  font-size: 13px;
+}

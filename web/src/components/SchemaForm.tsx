@@ -9,7 +9,7 @@ import {
   getCandidates, grantConstraints, isRequired, ROW_ERR, subtreeIds, validateTree,
 } from "../lib/formLogic.js";
 import type { Candidate, Constraint, Errors, ScopeTree } from "../lib/formLogic.js";
-import { disabledOptions, maxLengthFor, populationCap } from "../lib/portalRules.js";
+import { disabledOptions, hiddenOptions, maxLengthFor, populationCap } from "../lib/portalRules.js";
 import { HierarchyRows } from "./HierarchyOverview.js";
 import { enumIds, recordLabel, refList, refTargets, RowScope, splitRef } from "../lib/scope.js";
 import type { FlatRow, FormStore, RecordScope } from "../lib/scope.js";
@@ -220,7 +220,7 @@ function FieldInput({
       input = <input type="month" placeholder="YYYY-MM" value={String(value ?? "")} onChange={(e) => onChange(e.target.value || null)} disabled={disabled} />;
       break;
     case "enumerated":
-      input = <EnumInput el={el} value={value} onChange={onChange} disabled={disabled} blocked={disabledOptions(el, scope)} />;
+      input = <EnumInput el={el} formId={scope.schema.id} value={value} onChange={onChange} disabled={disabled} blocked={disabledOptions(el, scope)} />;
       break;
     case "reference":
       input = <ReferenceInput el={el} value={value} onChange={onChange} scope={scope} ctx={ctx} constraint={constraint} />;
@@ -295,15 +295,17 @@ function FieldInput({
 }
 
 function EnumInput({
-  el, value, onChange, disabled, blocked,
+  el, formId, value, onChange, disabled, blocked,
 }: {
   el: FormElement;
+  formId: string;
   value: unknown;
   onChange: (v: unknown) => void;
   disabled: boolean;
   blocked?: Map<string, string>;
 }) {
-  const options = el.typeParameters?.values ?? [];
+  const hidden = hiddenOptions(el, formId);
+  const options = (el.typeParameters?.values ?? []).filter((o) => !hidden.has(o.id));
   const multiple = el.typeParameters?.cardinality?.toLowerCase() === "multiple";
   const selected = enumIds(value);
 
@@ -594,7 +596,7 @@ function SubformBlock({ el, tree, ctx }: { el: FormElement; tree: ScopeTree; ctx
       {el.description && <div className="field-help">{el.description}</div>}
       <HierarchyRows
         rows={children}
-        needsAttention={(r) => !!r.node.isNew || [...ctx.errors.keys()].some((k) => subtreeIds(r).has(k.split(":")[0]))}
+        needsAttention={(r) => !!r.node.isNew || !!r.node.notice || [...ctx.errors.keys()].some((k) => subtreeIds(r).has(k.split(":")[0]))}
         renderRow={(child, i) => (
           <SubformRow key={child.node.recordId} tree={child} index={i} ctx={ctx} onRemove={() => removeRow(child.node)} />
         )}
@@ -623,6 +625,7 @@ function SubformRow({ tree, index, ctx, onRemove }: { tree: ScopeTree; index: nu
           Remove
         </button>
       </div>
+      {tree.node.notice && <div className="row-notice">{tree.node.notice}</div>}
       {rowError && <div className="field-error">{rowError}</div>}
       {expanded && (
         <div className="subform-row-body">

@@ -4,6 +4,7 @@ import { api } from "../lib/api.js";
 import type { Grant, RecordChange } from "../lib/api.js";
 import { generateRecordId } from "../lib/cuid.js";
 import { defaultFields, loadFormStore, loadRecordTree } from "../lib/formStore.js";
+import { migrateLocationMethod } from "../lib/portalRules.js";
 import type { RecordNode } from "../lib/formStore.js";
 import type { FormStore } from "../lib/scope.js";
 import { SchemaForm } from "../components/SchemaForm.js";
@@ -38,6 +39,7 @@ export function RecordEditPage() {
           node = { formId, recordId: generateRecordId(), fields: defaultFields(schema), subforms: {}, isNew: true, dirty: true };
         } else {
           node = await loadRecordTree(st, formId, rec.recordId, rec.fields ?? {});
+          migrateLocationMethod(node, st);
           if (!cancelled) setParentRecordId(rec.parentRecordId ?? null);
         }
         if (cancelled) return;

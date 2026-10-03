@@ -1,7 +1,9 @@
 import type { FormElement } from "./api.js";
 import { truthy, tryEval } from "./formula.js";
 import type { Val } from "./formula.js";
-import { enumIds, refLabel, refList } from "./scope.js";
+import { enumIds, refLabel, refList, splitRef } from "./scope.js";
+import { generateRecordId } from "./cuid.js";
+import type { RecordNode } from "./formStore.js";
 import type { FlatRow, FormStore, RecordScope } from "./scope.js";
 
 /**
@@ -12,6 +14,8 @@ import type { FlatRow, FormStore, RecordScope } from "./scope.js";
 type Band = "F<1" | "M<1" | "F1-4" | "M1-4" | "F5-11" | "M5-11" | "F12-17" | "M12-17" | "F18-59" | "M18-59" | "F60+" | "M60+";
 
 interface FieldRule {
+  /** Choices of a choice field that the portal no longer offers. */
+  hiddenOptions?: string[];
   maxLength?: number;
   wholeNumber?: boolean;
   email?: boolean;
@@ -37,6 +41,16 @@ const CROSS_CUTTING = "c1psa8tmu9k3rfx5";
 const UNDER_18_F: Band[] = ["F<1", "F1-4", "F5-11", "F12-17"];
 const UNDER_18_M: Band[] = ["M<1", "M1-4", "M5-11", "M12-17"];
 const TOTAL_INDIVIDUALS = "c3vvb1bmujnotntf";
+const LOCATION_METHOD = "c4hm1ilmupbi8ek7";
+const METHOD_BULK = "cyeumixmupbi8ek6";
+const METHOD_MULTIPLE = "coabcs7mupbiys68";
+const CAMPS_MULTI = "cpbuvk8mup9thvy3";
+const BLOCKS_MULTI = "cofm5bdmup9u2mi4";
+const LOCATIONS_SUBFORM = "cpyu91omtsbcrlyf";
+const LOCATIONS_FORM = "cpzuby7mtsbcrlye";
+const LOCATION_CAMP = "chzhvvbmtv21q891e";
+const LOCATION_BLOCK = "cq6o8yfmtv1yril1d";
+const CAMPS_FORM = "cph69t1mttyk96l5ke4";
 
 const RULES: Record<string, Record<string, FieldRule>> = {
   [MAIN]: {
@@ -48,6 +62,8 @@ const RULES: Record<string, Record<string, FieldRule>> = {
   },
   [ACTIVITIES]: {
     // Same rules ActivityInfo applies to "Camp or Union" and "Block" in 2.A-Locations.
+    // Only bulk upload into 2.A-Locations is used; ActivityInfo exports nothing else as locations.
+    [LOCATION_METHOD]: { hiddenOptions: [METHOD_MULTIPLE] },
     cpbuvk8mup9thvy3: {
       choiceRule: {
         formula: `ckllle4mtsg3apjm == "Refugees & Host Community" || cpbuvk8mup9thvy3.cvqj76rmttkqjgs4 == "Refugees & Host Community" || cpbuvk8mup9thvy3.cvqj76rmttkqjgs4 == ckllle4mtsg3apjm`,
@@ -248,6 +264,9 @@ export function portalError(
   calc: (el: FormElement) => Val | undefined,
 ): string | undefined {
   const rule = ruleFor(el, scope.schema.id);
+  if (rule?.hiddenOptions && enumIds(value).some((id) => rule.hiddenOptions!.includes(id))) {
+    return "This choice is no longer used. Please pick another one.";
+  }
   if (el.id === TARGET_AREA_FIELD) {
     const reason = disabledOptions(el, scope)?.get(enumIds(value)[0]);
     if (reason) return `Not possible: ${reason}. Choose another upazila or population group.`;
@@ -290,4 +309,54 @@ export function portalError(
     }
   }
   return undefined;
+}
+
+export function hiddenOptions(el: FormElement, formId: string): Set<string> {
+  return new Set(ruleFor(el, formId)?.hiddenOptions ?? []);
+}
+
+/**
+ * Activities saved with the old "Add multiple locations" method: turn their chosen
+ * camps and blocks into 2.A-Locations rows and switch them to bulk upload. Changes are
+ * only made in the form; they reach ActivityInfo when the user saves.
+ */
+export function migrateLocationMethod(root: RecordNode, store: FormStore): number {
+  let converted = 0;
+  const visit = (node: RecordNode) => {
+    for (const rows of Object.values(node.subforms)) rows.forEach(visit);
+    if (node.formId !== ACTIVITIES || !enumIds(node.fields[LOCATION_METHOD]).includes(METHOD_MULTIPLE)) return;
+    const blocks = refList(node.fields[BLOCKS_MULTI]);
+    const camps = refList(node.fields[CAMPS_MULTI]);
+    const pairs: { camp: string; block?: string }[] = [];
+    const campsWithBlocks = new Set<string>();
+    for (const b of blocks) {
+      const [, blockId] = splitRef(b);
+      const campId = store.rowsById.get(POPULATION_FORM)?.get(blockId)?.["camp.@id"];
+      if (typeof campId !== "string") continue;
+      const camp = `${CAMPS_FORM}:${campId}`;
+      campsWithBlocks.add(camp);
+      pairs.push({ camp, block: b });
+    }
+    for (const c of camps) if (!campsWithBlocks.has(c)) pairs.push({ camp: c });
+    const existing = node.subforms[LOCATIONS_SUBFORM] ?? [];
+    node.subforms[LOCATIONS_SUBFORM] = [
+      ...existing,
+      ...pairs.map((p) => ({
+        formId: LOCATIONS_FORM,
+        recordId: generateRecordId(),
+        fields: { [LOCATION_CAMP]: p.camp, ...(p.block ? { [LOCATION_BLOCK]: p.block } : {}) },
+        subforms: {},
+        isNew: true,
+        dirty: true,
+      })),
+    ];
+    node.fields = { ...node.fields, [LOCATION_METHOD]: METHOD_BULK };
+    node.dirty = true;
+    node.notice =
+      `This activity used "Add multiple locations", which is no longer used. Its ${pairs.length} location` +
+      `${pairs.length === 1 ? " was" : "s were"} moved into 2.A-Locations below. Please check them and save.`;
+    converted++;
+  };
+  visit(root);
+  return converted;
 }
