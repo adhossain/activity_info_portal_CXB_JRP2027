@@ -12,7 +12,7 @@ export function DatabasesPage() {
   useEffect(() => {
     api
       .getDatabases()
-      .then(setDatabases)
+      .then((all) => setDatabases(all.filter((db) => FEATURED_DATABASES.has(db.databaseId))))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -24,7 +24,9 @@ export function DatabasesPage() {
     <>
       <h2 className="page-title">Databases</h2>
       {databases.length === 0 ? (
-        <div className="empty">No databases found.</div>
+        <div className="empty">
+          The Bangladesh Rohingya Refugees Joint Response Plan database is not available to your ActivityInfo account.
+        </div>
       ) : (
         <div className="grid">
           {databases.map((db) => (

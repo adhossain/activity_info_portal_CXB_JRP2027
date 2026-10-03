@@ -29,7 +29,7 @@ export function FormsPage() {
   const allForms = tree.resources.filter((r) => r.type === "FORM");
   const folders = tree.resources.filter((r) => r.type === "FOLDER");
 
-  const forms = filterAccessibleForms(allForms, folders, grants, grantedIds);
+  const forms = filterAccessibleForms(allForms, folders, grants, grantedIds).filter((f) => FEATURED_FORMS.has(f.id));
 
   return (
     <>
@@ -46,7 +46,7 @@ export function FormsPage() {
       )}
 
       {forms.length === 0 ? (
-        <div className="empty">No forms in this database.</div>
+        <div className="empty">The JRP 2027-28 Project Submission form is not available to your ActivityInfo account in this database.</div>
       ) : (
         <FormTree forms={forms} folders={folders} />
       )}

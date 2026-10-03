@@ -5,14 +5,14 @@ import type { ScopeTree } from "../lib/formLogic.js";
 import { refList } from "../lib/scope.js";
 import { ExpandAll } from "./expandAll.js";
 
-interface Group {
+export interface Group {
   kind: string;
   value: string;
   groups: Group[];
   rows: ScopeTree[];
 }
 
-function countRows(g: Group): number {
+export function countRows(g: Group): number {
   return g.rows.length + g.groups.reduce((s, c) => s + countRows(c), 0);
 }
 
@@ -24,7 +24,7 @@ function allRows(g: Group): ScopeTree[] {
  * Groups sub-form rows by all lookup levels but the last, e.g. Objective → Activity Group,
  * leaving each row (the Sub-Activity) inside its group. Rows not yet chosen stay ungrouped.
  */
-function groupRows(rows: ScopeTree[]): { groups: Group[]; ungrouped: ScopeTree[] } | undefined {
+export function groupRows(rows: ScopeTree[]): { groups: Group[]; ungrouped: ScopeTree[] } | undefined {
   const el = rows[0] && hierarchyField(rows[0].schema);
   if (!el) return undefined;
   const groups: Group[] = [];

@@ -16,7 +16,7 @@ You sign in with your own ActivityInfo account and API token. Everything you rea
 ## What it does
 
 - **Sign in with ActivityInfo.** You need your email and a personal API token with **Read & Write** scope. The login page has a step-by-step guide to creating one.
-- **Browse** your databases and forms. The JRP database and the Project Submission form are highlighted.
+- **Only the relevant form is listed:** the portal shows just the *Bangladesh Rohingya Refugees Joint Response Plan* database and its *JRP 2027-28 Appeal – Project Submission Template* form.
 - **Create, edit and delete projects**, including all their sub-forms: 02 Activities, 2.A Locations, 03 Targets and 04 Cross-Cutting Themes. A project and all its rows are saved to ActivityInfo in one request.
 - **Applies the form's own ActivityInfo rules in the browser:**
   - fields that show or hide based on other answers;
@@ -36,7 +36,7 @@ You sign in with your own ActivityInfo account and API token. Everything you rea
   - camps and blocks that match the activity's population;
   - at least one location per activity at final submission.
 - **Activities grouped by objective:** each objective is a row, with its activity groups and their activities nested inside.
-- **Export to PDF:** a project prints with every section expanded.
+- **Export to PDF or Word:** a project is exported with every section expanded; the Word file (.docx) keeps the same headings and layout.
 
 ### Limitations
 

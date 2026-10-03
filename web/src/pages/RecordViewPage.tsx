@@ -8,6 +8,14 @@ import { buildScopeTree } from "../lib/formLogic.js";
 import type { FormStore } from "../lib/scope.js";
 import { RecordView } from "../components/RecordView.js";
 import { ExpandAll } from "../components/expandAll.js";
+import type { FormSchema } from "../lib/api.js";
+
+/** "<project title> - <form name>", safe to use as a file name. */
+function exportName(schema: FormSchema | undefined, root: RecordNode): string {
+  const titleEl = schema?.elements.find((e) => e.type === "FREE_TEXT" && root.fields[e.id]);
+  const title = titleEl ? String(root.fields[titleEl.id]) : root.recordId;
+  return `${title} - ${schema?.label ?? "Record"}`.replace(/[\\/:*?"<>|]/g, "-");
+}
 
 export function RecordViewPage() {
   const { formId, recordId } = useParams<{ formId: string; recordId: string }>();
@@ -18,6 +26,7 @@ export function RecordViewPage() {
   const [deleting, setDeleting] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [browserPrint, setBrowserPrint] = useState(false);
+  const [exportingWord, setExportingWord] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -41,12 +50,7 @@ export function RecordViewPage() {
   useEffect(() => {
     if (!printing) return;
     const previous = document.title;
-    if (store && root) {
-      const schema = store.schemas.get(root.formId);
-      const titleEl = schema?.elements.find((e) => e.type === "FREE_TEXT" && root.fields[e.id]);
-      const title = titleEl ? String(root.fields[titleEl.id]) : root.recordId;
-      document.title = `${title} - ${schema?.label ?? "Record"}`.replace(/[\\/:*?"<>|]/g, "-");
-    }
+    if (store && root) document.title = exportName(store.schemas.get(root.formId), root);
     const done = () => setPrinting(false);
     window.addEventListener("afterprint", done, { once: true });
     // Give the expanded rows a moment to render before opening the print window.
@@ -73,6 +77,23 @@ export function RecordViewPage() {
   if (error) return <div className="error-msg">{error}</div>;
   if (!store || !root || !formId || !recordId) return <div className="loading">Loading record…</div>;
   const schema = store.schemas.get(formId)!;
+
+  const onExportWord = async () => {
+    setExportingWord(true);
+    try {
+      const { exportDocx } = await import("../lib/exportDocx.js");
+      await exportDocx(buildScopeTree(root, store), {
+        title: schema.label,
+        recordLine: `Record ID: ${recordId}${lastEdit > 0 ? ` · Last edited: ${new Date(lastEdit * 1000).toLocaleString()}` : ""}`,
+        exportedLine: `Exported from ActivityInfo Portal on ${new Date().toLocaleString()}. Please verify all entries in ActivityInfo.`,
+        fileName: exportName(schema, root),
+      });
+    } catch (e) {
+      alert(e instanceof Error ? `Export failed: ${e.message}` : "Export failed");
+    } finally {
+      setExportingWord(false);
+    }
+  };
 
   const onDelete = async () => {
     if (!confirm("Delete this record? This cannot be undone.")) return;
@@ -102,6 +123,9 @@ export function RecordViewPage() {
         <div className="no-print" style={{ display: "flex", gap: 8 }}>
           <button className="btn" disabled={printing} onClick={() => setPrinting(true)}>
             {printing ? "Preparing…" : "Export to PDF"}
+          </button>
+          <button className="btn" disabled={exportingWord} onClick={onExportWord}>
+            {exportingWord ? "Preparing…" : "Export to Word"}
           </button>
           <Link to={`/form/${formId}/record/${recordId}/edit`} className="btn btn-primary">Edit</Link>
           <button className="btn btn-danger-outline" disabled={deleting} onClick={onDelete}>
